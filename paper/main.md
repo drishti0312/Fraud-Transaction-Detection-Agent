@@ -16,17 +16,11 @@ The goal of this project is not simply to classify every transaction as fraudule
 
 ## 2. Related Work and Human Discussions
 
-Credit card fraud detection has been widely studied using machine learning and statistical methods. Existing research highlights multiple challenges that make fraud detection different from other classification problems. Since fraudulent transactions occur less frequently than legitimate transactions, fraud detection often involves class imbalance.
+Credit card fraud detection has been widely studied using machine learning and statistical methods. Existing research highlights multiple challenges that make fraud detection different from ordinary classification. Since fraudulent transactions are much less frequent than legitimate transactions, fraud detection is affected by class imbalance. In addition, customer purchasing patterns can change over time. Previous research has therefore explored methods based on feature engineering, sequential transaction modeling, and models that can adapt to changing data distributions [1, 2].
 
-In addition, customers' purchasing patterns can change over time. Previous research has therefore explored methods based on feature engineering, sequential transaction modeling, and models that can adapt to changing data distributions [1, 2].
+Another challenge is that fraud detection is not only a prediction problem. A system must make a decision while considering the consequences of that decision. For example, approving a fraudulent transaction can create financial loss, whereas incorrectly stopping a legitimate transaction can create a poor customer experience. This motivates a decision-making approach in which estimated fraud risk is considered together with the consequences of different actions.
 
-One more challenge is that fraud detection is not only a prediction problem. A system must make a decision considering the consequences it will face depending on the transaction. For example, if a fraudulent transaction is approved, it can create a financial loss, whereas incorrectly stopping a legitimate transaction can create a poor customer experience.
-
-This motivates a decision-making approach in which the estimated fraud risk is considered together with the consequences of different actions.
-
-My project uses a small and simpler version of this idea. Instead of directly making a decision about whether the transaction is legitimate or fraudulent, the agent chooses between four actions: **Approve, Question, Examine, or Decline**.
-
-The agent uses customer transaction history to identify when different levels of intervention may be appropriate rather than immediately making a final decision.
+My project uses a small and simpler version of this idea. Instead of directly deciding whether a transaction is legitimate or fraudulent, the agent chooses between four actions: **Approve, Question, Examine, or Decline**. The agent uses customer transaction history to identify different levels of risk and choose an appropriate level of intervention rather than immediately making a binary decision.
 
 ### 2.1 Human Discussions
 
@@ -124,7 +118,7 @@ An important feature of the agent is that the initial action does not always hav
 
 When the agent selects **Question**, it determines whether additional information should be requested. In the current prototype, a transaction confirmation question can be triggered when the amount or transaction frequency is unusual. A location question can also be generated when the transaction location is missing.
 
-After receiving the simulated response, the agent updates its fraud belief and recalculates the expected costs of the available actions. It can then make a final decision or escalate the transaction to **Human Investigation** if uncertainty remains.
+After receiving the simulated response, the agent can change its final action. For example, a confirmation that the customer did not make the transaction results in a **Decline** decision.
 
 Thus, the agent follows a sequential process:
 
@@ -137,9 +131,7 @@ $$
 \rightarrow
 \text{Receive Information}
 \rightarrow
-\text{Update Belief}
-\rightarrow
-\text{Final Decision or Human Investigation}
+\text{Final Decision}
 $$
 
 This design reflects the idea that uncertainty can sometimes be reduced by obtaining additional information rather than immediately making an irreversible decision.
@@ -185,9 +177,7 @@ $$
 \rightarrow
 \text{New Evidence}
 \rightarrow
-\text{Updated Belief}
-\rightarrow
-\text{Final Action or Human Investigation}
+\text{Final Action}
 }
 $$
 
@@ -362,9 +352,7 @@ Comparing the two policies allows the experiment to examine whether explicitly m
 
 When the initial action is Question, the agent can request additional information. The new information can affect the final decision.
 
-For example, if a transaction is considered unusual because of its amount or frequency, the agent can ask the customer to confirm the transaction. The response is treated as new evidence, the fraud belief is updated, and the action costs are recalculated.
-
-If the updated belief is sufficiently decisive, the agent can approve or decline the transaction. If uncertainty remains, the transaction can be escalated to Human Investigation.
+For example, if a transaction is considered unusual because of its amount or frequency, the agent can ask the customer to confirm the transaction. In the current simulation, a negative confirmation leads to a Decline decision, while a positive confirmation leads to an Approve decision.
 
 The overall decision process is therefore:
 
@@ -379,9 +367,7 @@ $$
 \rightarrow
 \text{Additional Information}
 \rightarrow
-\text{Updated Belief}
-\rightarrow
-\text{Final Action or Human Investigation}
+\text{Final Action}
 $$
 
 This sequential structure is important because the objective of the agent is not simply to classify transactions. It is to decide **what to do next when the true state is uncertain**.
@@ -440,7 +426,7 @@ Two decision policies were evaluated.
 
 Policy A calculates the expected cost of Approve, Question, Examine, and Decline using the agent's estimated fraud belief. The action with the lowest expected cost is selected.
 
-When Question is selected, the agent can request additional information, update its belief using the response, and produce a final action or escalate the case to Human Investigation.
+When Question is selected, the agent can request additional information and produce a final action based on the simulated response.
 
 **Policy B — Threshold-Based Decision**
 
@@ -476,27 +462,13 @@ These metrics were selected because a fraud-detection agent has to balance fraud
 
 ### 5.6 Sequential Decision Evaluation
 
-For transactions initially assigned the Question action, the prototype simulated a customer response. The response was then used as additional evidence for the final decision.
+For transactions initially assigned the Question action, the prototype simulated a customer response. The response was then used to determine the final action.
 
-For example, when the simulated customer did not confirm a suspicious transaction, the fraud belief increased and the agent could move toward a Decline decision. If the updated evidence did not produce a sufficiently decisive result, the transaction could instead be escalated to Human Investigation.
+For example, when the simulated customer did not confirm a suspicious transaction, the agent declined it. This allowed the experiment to distinguish between the agent's **initial action** and its **final action** after additional information.
 
 The customer-response mechanism is a simulation rather than real human feedback. In the current implementation, the simulator uses the known transaction label to generate the response. Therefore, this mechanism is useful for demonstrating the sequential decision process but should not be interpreted as evidence of real-world customer behavior.
 
-### 5.7 Probability and Uncertainty Evaluation
-
-To evaluate whether additional information reduced uncertainty, binary entropy was calculated for transactions that received a simulated customer response.
-
-For the 223 transactions that received a customer response:
-
-* Average initial entropy: **0.9833**
-* Average updated entropy: **0.3651**
-* Average realized entropy reduction: **0.6182**
-
-The entropy reduction is calculated as the difference between the initial and updated entropy for each transaction and then averaged across the questioned transactions.
-
-This value represents **realized entropy reduction after observing the simulated response**. It should not be interpreted as formal expected information gain before the response is observed.
-
-### 5.8 Implementation and Evaluation Limitation
+### 5.7 Implementation and Evaluation Limitation
 
 During the probability review, an implementation issue was identified in the likelihood-estimation function. The function accepts a dataset as an argument but internally references the global `df_trans` object when calculating likelihoods. As a result, the reported implementation does not fully isolate the likelihood estimation to the training set as originally intended.
 
@@ -506,61 +478,77 @@ These issues do not mean that the agent directly observes the fraud label during
 
 ## 6. Failure Analysis
 
-Failure analysis was used to understand cases where the agent did not immediately make the expected final decision. Instead of evaluating only the overall performance metrics, the analysis examined transactions that required additional reasoning or escalation.
+Although the agent achieved high overall performance, examining its incorrect and uncertain decisions provides more insight than reporting aggregate metrics alone. Under Policy A, nine of the 400 fraudulent transactions were not automatically declined. All nine were assigned to the Examine action. Therefore, the main failure mode was not approving fraudulent transactions, but failing to assign a sufficiently high fraud belief for automatic decline.
 
-In the latest evaluation, the final actions were distributed as follows:
+### 6.1 Examples of Difficult Cases
 
-| Final Action        | Number of Transactions |
-| ------------------- | ---------------------: |
-| Approve             |                  1,931 |
-| Decline             |                    391 |
-| Examine             |                      9 |
-| Human Investigation |                     69 |
+Five of the nine fraudulent transactions were examined in greater detail.
 
-The final confusion table was:
+| Transaction | Main Evidence                                    | Fraud Belief | Final Action | True State |
+| ----------- | ------------------------------------------------ | -----------: | ------------ | ---------- |
+| FREQ_C0467  | Unusual frequency; location missing              |       0.6197 | Examine      | Fraud      |
+| FREQ_C0834  | Unusual frequency; location missing              |       0.6197 | Examine      | Fraud      |
+| LOC_C0622   | Unusual frequency; location missing              |       0.6197 | Examine      | Fraud      |
+| LOC_C0997   | Unusual frequency; location missing              |       0.6197 | Examine      | Fraud      |
+| MERCH_C0718 | Unusual frequency; location and merchant missing |       0.5749 | Examine      | Fraud      |
 
-| Final Action        | Legitimate | Fraudulent |
-| ------------------- | ---------: | ---------: |
-| Approve             |      1,931 |          0 |
-| Decline             |          4 |        387 |
-| Examine             |          2 |          7 |
-| Human Investigation |         54 |         15 |
+The first four cases produced almost identical evidence patterns. Their transaction amount was not considered unusual, the merchant was considered familiar, location information was unavailable, frequency was unusual, and velocity was not unusual. The resulting fraud belief was approximately 0.62.
 
-The results show that the agent did not approve any fraudulent transaction in the evaluated test set. Most fraudulent transactions were declined automatically, while the remaining fraudulent cases were either examined or escalated to Human Investigation. A small number of legitimate transactions were also declined, showing the trade-off between preventing fraud and avoiding false declines.
+The fifth case had an even more limited evidence set because both location and merchant information were unavailable. Its fraud belief was approximately 0.57.
 
-### 6.1 Cases Requiring Additional Reasoning
+In all five cases, the fraud belief was high enough to trigger additional examination but not high enough for the cost-based policy to select automatic decline.
 
-The transactions assigned to Examine or Human Investigation represent cases where the available evidence did not provide enough confidence for a straightforward automatic decision.
+### 6.2 Main Failure Condition
 
-For example, the transaction `FREQ_C0386` initially had a fraud belief of 54.21%. The only unusual signal was frequency. Instead of immediately declining the transaction, the agent selected Question because it had the lowest expected cost.
+The examples indicate that the agent can struggle when a fraudulent transaction exhibits only one strong behavioral signal while other evidence is either normal or unavailable.
 
-After the simulated customer response provided additional evidence, the fraud belief increased to 95.52%, and Decline became the lowest-cost action.
+For example, unusual transaction frequency by itself does not necessarily provide enough evidence for the current cost model to select Decline. The agent therefore produces a moderate-to-high fraud belief but remains below the decision boundary required for automatic decline.
 
-This example demonstrates why a probabilistic decision process can be useful: the initial decision was not treated as final, and additional information was used to update the belief before making the final decision.
+Missing information makes this problem more pronounced. In the current probability model, missing location or merchant information is treated as neutral evidence. Consequently, the absence of information does not directly increase the fraud belief, but it also does not provide additional evidence that could distinguish the transaction from legitimate behavior.
 
-### 6.2 Sources of Uncertainty
+### 6.3 Coarse Evidence Representation
 
-Several factors contributed to uncertain decisions:
+Another limitation is the Boolean representation of the evidence.
 
-1. **Limited evidence:** Some transactions contained only one unusual signal, making the initial fraud belief less decisive.
-2. **Boolean evidence:** Evidence was represented as unusual/not unusual, which does not capture how unusual a transaction actually was.
-3. **Missing information:** Missing location or merchant information can reduce the amount of evidence available to the agent.
-4. **Simplified probability model:** The current model assumes conditional independence between evidence signals and uses a fixed prior probability.
-5. **Simulated customer responses:** Customer responses were generated using assumed response probabilities rather than observed customer behavior.
+The current system records whether an observation is unusual as either `True` or `False`. This simplifies the model but removes information about the degree of unusualness.
 
-These limitations mean that the agent's probabilities should be interpreted as model beliefs rather than perfectly calibrated real-world fraud probabilities.
+For example, two transactions may both be classified as having unusual frequency even though one occurred slightly faster than normal while another occurred immediately after a previous transaction. Both observations are represented by the same Boolean value.
 
-### 6.3 Key Observations
+This can result in several transactions receiving similar fraud beliefs even when their underlying behavior differs.
 
-The failure analysis highlights three important observations.
+### 6.4 Highest-Cost Error
 
-First, a transaction with uncertain evidence does not necessarily need to be immediately approved or declined. The agent can use additional information to reduce uncertainty.
+The most important potential error in a fraud-detection system is approving a fraudulent transaction. In the evaluated test set, no fraudulent transaction was ultimately approved by either Policy A or Policy B.
 
-Second, the cost-sensitive decision policy allows the agent to consider the consequences of different actions rather than relying only on a fraud-probability threshold.
+Therefore, the highest-cost error type did not occur in the evaluated sample.
 
-Third, Human Investigation provides a mechanism for handling cases where automated reasoning remains uncertain. This is particularly important in fraud detection because unusual behavior is not always fraudulent, and an incorrect decline can negatively affect legitimate customers.
+The remaining nine fraudulent transactions under Policy A were instead routed to Examine. This means that the agent did not automatically intercept these cases through a Decline decision, but it also did not allow them to proceed as approved transactions.
 
-Future improvements could include using continuous transaction features instead of Boolean indicators, learning action costs from real business outcomes, calibrating the probability estimates, modeling dependencies between evidence signals, and evaluating the system using time-based data to better represent concept drift.
+From a decision-making perspective, this suggests that the current system has a relatively conservative failure mode in the tested dataset: uncertain fraudulent transactions tend to be escalated rather than approved.
+
+### 6.5 Policy Comparison as Failure Analysis
+
+Policy B provides another perspective on these difficult cases. It examined 52 transactions, including 39 fraudulent and 13 legitimate transactions.
+
+Compared with Policy A, Policy B moved 30 fraudulent transactions from automatic Decline to Examine. At the same time, it increased the number of legitimate transactions sent for examination.
+
+This demonstrates that changing the decision policy can change the treatment of uncertain cases without changing the underlying evidence or probability model.
+
+Policy A therefore prioritized stronger automatic fraud interception, while Policy B allowed more uncertain cases to remain available for examination.
+
+### 6.6 Lessons from the Failures
+
+The failure analysis suggests several areas for future improvement:
+
+1. **Use continuous evidence instead of only Boolean indicators.** The magnitude of unusual behavior could provide more information than simply labeling it unusual.
+2. **Improve treatment of missing information.** Future versions could explicitly model whether missing information itself contains useful information.
+3. **Calibrate fraud beliefs.** The current belief values have not been formally calibrated against observed probabilities.
+4. **Improve the independence assumption.** Frequency and velocity, for example, may contain related information.
+5. **Tune decision thresholds and costs using validation data and realistic business constraints.**
+
+These improvements are not required to demonstrate the current prototype, but they would be important for a more reliable future version.
+
+Overall, the failure analysis shows that the agent's main weakness was not an inability to detect fraud in general, but difficulty distinguishing some fraudulent transactions when the available evidence was limited or represented too coarsely.
 
 ## 7. Limitations, Ethics, and Human Control
 
@@ -628,7 +616,7 @@ The use of behavioral information also raises privacy considerations. A producti
 
 ### 7.8 Human Control
 
-Human involvement is particularly important for transactions where the agent is uncertain. The Examine action and Human Investigation escalation provide mechanisms for escalating transactions rather than forcing the automated system to make every final decision.
+Human involvement is particularly important for transactions where the agent is uncertain. The Examine action provides a mechanism for escalating transactions rather than forcing the automated system to make every final decision.
 
 A possible real-world workflow would therefore be:
 
@@ -669,7 +657,7 @@ On the latest evaluation, the agent achieved 98.92% accuracy, 98.98% precision, 
 
 The probability-based approach also showed that additional information can meaningfully reduce uncertainty. For the 223 transactions that received a simulated customer response, average entropy decreased from 0.9833 before the response to 0.3651 after the response, corresponding to an average realized entropy reduction of approximately 0.6182.
 
-The Probability Decision Record for transaction `FREQ_C0386` demonstrates this process. The initial fraud belief was 54.21%, leading the agent to choose Question because it had the lowest expected cost. After the customer response provided additional evidence, the fraud belief increased to 95.52%, and Decline became the lowest-cost action.
+The Probability Decision Record for transaction FREQ_C0386 demonstrates this process. The initial fraud belief was 54.21%, leading the agent to choose Question because it had the lowest expected cost. After the customer response provided additional evidence, the fraud belief increased to 95.52%, and Decline became the lowest-cost action.
 
 The results suggest that probabilistic reasoning can make a fraud detection agent more adaptive by allowing it to represent uncertainty, gather additional evidence, and revise decisions. However, the system remains a research prototype rather than a production-ready fraud detection system. The dataset is synthetic, customer responses are simulated, action costs are illustrative, and the probability model uses simplified assumptions such as a fixed prior and conditional independence between evidence signals.
 
