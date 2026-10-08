@@ -756,42 +756,27 @@ These improvements would make the system more suitable for rigorous evaluation, 
 
 ## 9. Conclusion and New Questions
 
-This project explored the design of an AI agent that makes credit-card transaction decisions when the true state of the transaction is hidden. Rather than treating fraud detection as a simple binary classification problem, the agent estimates a belief about whether a transaction is fraudulent and uses that belief to select among four actions: Approve, Question, Examine, and Decline.
+This project developed a probabilistic credit card fraud detection agent that makes decisions under uncertainty rather than treating fraud detection as a single fixed classification step. The agent combines customer history and transaction evidence to estimate a fraud belief, selects an action based on expected costs, and can request additional information before making a final decision.
 
-The prototype uses customer transaction history to identify unusual behavioral patterns in transaction amount, location, merchant, frequency, and velocity. These signals are combined using a Bayesian-style probability model, after which the agent selects an action using either a cost-based policy or a threshold-based policy. The Question action also demonstrates how an agent can obtain additional information before making a final decision.
+The Week 2 extension added sequential decision-making through customer responses. When the agent was uncertain, it could ask a question, update its belief using the new evidence, recalculate action costs, and either make a final decision or escalate the case to Human Investigation. This allowed the agent to use additional information instead of relying only on its initial evidence.
 
-The experiment showed that the two decision policies produced different outcomes even though they used the same underlying evidence and fraud-belief model. Policy A achieved a recall of 97.75%, while Policy B achieved a recall of 90.25%. Neither policy approved a fraudulent transaction or declined a legitimate transaction in the evaluated test set. Policy B, however, sent more transactions for examination, demonstrating the trade-off between automatic fraud interception and additional review.
+On the latest evaluation, the agent achieved 98.92% accuracy, 98.98% precision, 94.62% recall, and an F1 score of 96.75%. The final decisions consisted of 1,931 Approve decisions, 391 Decline decisions, 9 Examine decisions, and 69 Human Investigation decisions.
 
-The failure analysis showed that the agent struggled primarily when fraudulent transactions had limited or ambiguous evidence. Several difficult cases were associated with unusual frequency combined with missing location information. This highlighted an important limitation of representing behavioral evidence using simple Boolean indicators.
+The probability-based approach also showed that additional information can meaningfully reduce uncertainty. For the 223 transactions that received a simulated customer response, average entropy decreased from 0.9833 before the response to 0.3651 after the response, corresponding to an average realized entropy reduction of approximately 0.6182.
 
-The probability review also identified methodological limitations in the current implementation, including the use of a fixed fraud prior, the conditional-independence assumption, lack of probability calibration, illustrative action costs, and incomplete isolation between training and test data. The customer-response simulator also uses the hidden fraud label to generate responses, which limits the interpretation of the sequential-questioning results.
+The Probability Decision Record for transaction FREQ_C0386 demonstrates this process. The initial fraud belief was 54.21%, leading the agent to choose Question because it had the lowest expected cost. After the customer response provided additional evidence, the fraud belief increased to 95.52%, and Decline became the lowest-cost action.
 
-The most important lesson from the project is that fraud detection can be viewed not only as predicting whether a transaction is fraudulent, but also as deciding **what action to take when the system is uncertain**. Allowing an agent to Question or Examine a transaction provides alternatives to immediately approving or declining it.
+The results suggest that probabilistic reasoning can make a fraud detection agent more adaptive by allowing it to represent uncertainty, gather additional evidence, and revise decisions. However, the system remains a research prototype rather than a production-ready fraud detection system. The dataset is synthetic, customer responses are simulated, action costs are illustrative, and the probability model uses simplified assumptions such as a fixed prior and conditional independence between evidence signals.
 
-### 9.1 New Questions
+Future work could explore calibrated probabilities, continuous rather than Boolean evidence, better estimation of customer-response probabilities, time-based evaluation, monitoring for concept drift, and learning from human investigation outcomes. Another important direction is evaluating whether the cost structure and questioning strategy remain effective when tested on real-world data.
 
-The project raises several questions for future work:
+These limitations lead to several questions for future investigation:
 
-1. **How should an agent determine when it has enough evidence to act without asking the customer for more information?**
+1. How much additional evidence is enough before the agent should make a final decision?
+2. Can continuous evidence produce better-calibrated fraud probabilities than Boolean signals?
+3. How should action costs be learned from real business outcomes rather than manually specified?
+4. How should the agent handle uncertain or unreliable customer responses?
+5. Can feedback from human investigators be incorporated into future decisions?
+6. How should the probabilistic model adapt when fraud patterns change over time?
+7. How does the agent perform when evaluated using a strictly time-based train/test split?
 
-2. **Can continuous behavioral features produce better-calibrated fraud beliefs than Boolean unusual/not-unusual signals?**
-
-3. **How should action costs be learned from real customer and business outcomes rather than manually selected?**
-
-4. **Would a time-based evaluation produce different results from the random train-test split used in this prototype?**
-
-5. **How should the agent update its belief when customer responses are uncertain or potentially unreliable?**
-
-6. **Can human review be incorporated as genuine feedback that improves future decisions without introducing label leakage?**
-
-7. **How should the agent adapt when normal customer behavior changes over time or when fraud patterns evolve?**
-
-These questions provide directions for extending the prototype from a controlled demonstration into a more rigorous study of sequential decision-making under uncertainty.
-
-### 9.2 Request for Comments
-
-I would particularly welcome feedback on three aspects of this work:
-
-* whether the probability model is an appropriate starting point for this type of agent;
-* how the costs of customer friction and fraud prevention should be represented;
-* and how additional human feedback could be incorporated without giving the agent access to the hidden transaction state.
