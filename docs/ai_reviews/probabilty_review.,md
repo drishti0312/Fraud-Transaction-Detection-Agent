@@ -1,0 +1,189 @@
+# Probability Review
+
+## 1. Review Scope
+
+This review evaluates the probabilistic reasoning used in the credit-card fraud decision agent.
+
+The review focuses on:
+
+* Prior and posterior fraud beliefs
+* Bayesian belief updates
+* Uncertainty measurement using entropy
+* Information gathering through customer questions
+* Cost-sensitive decision making
+* Escalation of unresolved cases to Human Investigation
+* The distinction between uncertainty measurement and action selection
+
+---
+
+## 2. Strengths
+
+### 2.1 Explicit probabilistic beliefs
+
+The agent does not treat a transaction as simply "fraud" or "not fraud" at the beginning of the decision process.
+
+Instead, it maintains beliefs over two hidden states:
+
+* Legitimate
+* Fraudulent
+
+This allows the agent to represent uncertainty before making a decision.
+
+### 2.2 Bayesian updating with new evidence
+
+The agent updates its fraud belief when additional evidence becomes available.
+
+For example, transaction `FREQ_C0386` initially had:
+
+* Legitimate: 45.79%
+* Fraudulent: 54.21%
+
+The agent therefore chose **Question** rather than immediately declining the transaction.
+
+After the customer response provided additional evidence, the belief changed to:
+
+* Legitimate: 4.48%
+* Fraudulent: 95.52%
+
+The decision consequently changed from **Question** to **Decline**.
+
+This demonstrates that the agent can revise its decision when new information changes the probability distribution.
+
+### 2.3 Uncertainty is measured separately from the decision
+
+The agent uses entropy to measure uncertainty.
+
+This is an important design choice because entropy answers:
+
+> "How uncertain is the agent?"
+
+while the cost model answers:
+
+> "Which action has the lowest expected cost?"
+
+The agent therefore does not use entropy alone to determine the final action.
+
+### 2.4 Information gathering is part of the decision process
+
+The agent can choose to ask for additional information instead of immediately approving or declining a transaction.
+
+This makes the system more than a static classifier.
+
+The Question action allows the agent to gather evidence and then update its belief before making a final decision.
+
+### 2.5 Human escalation handles unresolved uncertainty
+
+If additional information does not lead to a sufficiently clear decision, the agent can escalate the transaction to **Human Investigation**.
+
+This provides a mechanism for handling cases where automated decision-making remains uncertain.
+
+---
+
+## 3. Probability Concerns
+
+### 3.1 Customer responses are simulated
+
+The current experiment simulates customer responses using the actual fraud label.
+
+The actual fraud label is not provided to the agent during decision-making, but it is used to generate the synthetic customer response.
+
+This is appropriate for demonstrating the concept, but it would not represent a production setting.
+
+**Status: Accepted as a limitation.**
+
+Future work should use historical customer-response data to estimate realistic response probabilities.
+
+---
+
+### 3.2 Customer-response likelihoods are assumed
+
+The current implementation uses assumed probabilities for customer responses:
+
+* P(Yes | Fraudulent) = 0.10
+* P(Yes | Legitimate) = 0.95
+
+These values demonstrate Bayesian updating but have not been estimated from real customer behavior.
+
+**Status: Accepted as a limitation.**
+
+In a real system, these probabilities should be learned and validated using historical data.
+
+---
+
+### 3.3 Action costs are assumed
+
+The expected costs used by the agent are manually specified.
+
+For example, the cost of approving a fraudulent transaction is represented as substantially higher than the cost of other actions.
+
+These values are useful for demonstrating cost-sensitive decision making but should not be interpreted as real financial or operational costs.
+
+**Status: Accepted as a limitation.**
+
+A production implementation should estimate costs from business impact, fraud losses, customer friction, operational effort, and other relevant factors.
+
+---
+
+### 3.4 Binary hidden-state model
+
+The conceptual design initially considered additional states such as legitimate-but-unusual and unknown.
+
+However, the implemented probability model currently uses two hidden states:
+
+* Legitimate
+* Fraudulent
+
+The "unknown" concept is instead handled through uncertainty and Human Investigation.
+
+**Status: Deferred.**
+
+A richer probabilistic state model could be explored as future work if additional data and a clear business definition for those states become available.
+
+---
+
+### 3.5 Entropy reduction is measured retrospectively
+
+The project calculates entropy before and after customer responses.
+
+The average realized entropy reduction in the latest experiment was approximately **0.6182**.
+
+This demonstrates that the additional evidence reduced uncertainty in the observed cases.
+
+However, this should be described as **realized entropy reduction**, rather than claiming it is the formal expected information gain of the questioning policy.
+
+**Status: Accepted with clarification.**
+
+Future work could estimate expected information gain before selecting a question.
+
+---
+
+## 4. Probability Review Findings
+
+| Area                         | Finding                                          | Status              |
+| ---------------------------- | ------------------------------------------------ | ------------------- |
+| Probabilistic beliefs        | Explicit fraud/legitimate beliefs are maintained | Accepted            |
+| Bayesian updating            | Beliefs change when new evidence arrives         | Accepted            |
+| Entropy                      | Used to measure uncertainty                      | Accepted            |
+| Information gathering        | Agent can ask questions before deciding          | Accepted            |
+| Cost-sensitive decisions     | Actions selected using expected cost             | Accepted            |
+| Customer response simulation | Responses are synthetically generated            | Limitation accepted |
+| Response probabilities       | Currently assumed rather than learned            | Limitation accepted |
+| Action costs                 | Currently assumed                                | Limitation accepted |
+| Additional hidden states     | Not implemented in current probability model     | Deferred            |
+| Entropy reduction            | Should be described as realized reduction        | Accepted            |
+
+---
+
+## 5. Overall Probability Assessment
+
+The probabilistic design is conceptually sound for a research prototype.
+
+The agent demonstrates the key probabilistic decision-making loop:
+
+**Evidence → Belief → Action → New Evidence → Updated Belief → New Action**
+
+The strongest aspect of the design is that uncertainty is not treated as a final classification problem. Instead, the agent can recognize uncertainty, gather additional information, update its belief, and change its decision.
+
+The main limitations are the use of simulated customer responses, assumed response probabilities, and manually specified action costs. These assumptions are acceptable for demonstrating the methodology but would need to be replaced with empirically estimated values before production use.
+
+Overall, the project demonstrates a meaningful probabilistic extension of the fraud detection agent while clearly identifying areas requiring further validation.
