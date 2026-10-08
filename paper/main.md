@@ -479,111 +479,7 @@ In addition, customer histories were constructed from the complete dataset befor
 
 These issues do not mean that the agent directly observes the fraud label during its decision, but they mean that the experimental evaluation is not a perfectly isolated train-test experiment. This limitation is documented rather than hidden and is identified as a correction for a future experimental iteration.
 
-## 5. Experimental Setup
-
-The purpose of the experiment was to evaluate whether the proposed agent could make useful transaction decisions under uncertainty and whether different decision policies would produce different trade-offs between fraud detection and customer interaction.
-
-### 5.1 Dataset
-
-A synthetic credit-card transaction dataset was created for the experiment. The dataset contains transactions generated for 1,000 customers, with each customer having a history of normal transactions and potentially fraudulent transactions.
-
-The final dataset contains 12,000 transactions:
-
-* 10,000 legitimate transactions
-* 2,000 fraudulent transactions
-
-The fraudulent transactions were generated using several behavioral patterns, including:
-
-* unusually high transaction amounts,
-* unusual transaction locations,
-* unusually high transaction frequency, and
-* unusual or previously unseen merchants, including combinations of multiple unusual behaviors.
-
-The dataset also contains missing values for some transaction locations and merchants. This was intentional so that the agent could be evaluated when some information was unavailable.
-
-The dataset is synthetic and therefore does not represent the complexity or distribution of real-world credit-card transactions. It was created to provide a controlled environment for testing the agent's decision-making process.
-
-### 5.2 Train-Test Split
-
-The dataset was divided into training and test sets using an 80/20 stratified split.
-
-The training set contained 9,600 transactions and the test set contained 2,400 transactions. Stratification was used to maintain a similar proportion of legitimate and fraudulent transactions in both sets.
-
-The training data was intended to provide the likelihood estimates used by the probability model, while the test data was used to evaluate the agent's decisions.
-
-### 5.3 Evidence Generation
-
-For each transaction, the agent examined the customer's previous transactions to generate five behavioral evidence signals:
-
-1. **Amount unusualness**
-2. **Location unusualness**
-3. **Merchant unusualness**
-4. **Frequency unusualness**
-5. **Velocity unusualness**
-
-The agent only considered transactions occurring before the current transaction when constructing the customer's historical context. The fraud label of the current transaction was not provided to the agent during its decision.
-
-The resulting evidence was then passed to the probability model to calculate the agent's fraud belief.
-
-### 5.4 Policies
-
-Two decision policies were evaluated.
-
-**Policy A — Cost-Based Decision**
-
-Policy A calculates the expected cost of Approve, Question, Examine, and Decline using the agent's estimated fraud belief. The action with the lowest expected cost is selected.
-
-When Question is selected, the agent can request additional information and produce a final action based on the simulated response.
-
-**Policy B — Threshold-Based Decision**
-
-Policy B uses manually selected fraud-belief thresholds:
-
-| Fraud Belief | Action   |
-| ------------ | -------- |
-| < 0.20       | Approve  |
-| 0.20–<0.50   | Examine  |
-| 0.50–<0.80   | Question |
-| ≥ 0.80       | Decline  |
-
-These thresholds were selected for the experiment and were not optimized using a validation dataset.
-
-### 5.5 Evaluation Metrics
-
-The policies were evaluated using several metrics rather than accuracy alone.
-
-The evaluation included:
-
-* **Accuracy:** overall proportion of correct fraud/legitimate decisions.
-* **Precision:** proportion of transactions identified as fraud that were actually fraudulent.
-* **Recall:** proportion of fraudulent transactions identified by the agent.
-* **F1 score:** balance between precision and recall.
-* **False positives:** legitimate transactions incorrectly treated as fraudulent.
-* **False negatives:** fraudulent transactions not automatically identified as fraudulent.
-* **Legitimate approval rate:** proportion of legitimate transactions ultimately approved.
-* **Fraud interception rate:** proportion of fraudulent transactions that were not ultimately approved.
-* **Examination rate:** proportion of transactions sent for examination.
-* **Interaction rate:** proportion of transactions requiring additional questioning or intervention.
-
-These metrics were selected because a fraud-detection agent has to balance fraud prevention with the customer experience. A model that detects more fraud but unnecessarily interrupts legitimate customers may not be preferable in every setting.
-
-### 5.6 Sequential Decision Evaluation
-
-For transactions initially assigned the Question action, the prototype simulated a customer response. The response was then used to determine the final action.
-
-For example, when the simulated customer did not confirm a suspicious transaction, the agent declined it. This allowed the experiment to distinguish between the agent's **initial action** and its **final action** after additional information.
-
-The customer-response mechanism is a simulation rather than real human feedback. In the current implementation, the simulator uses the known transaction label to generate the response. Therefore, this mechanism is useful for demonstrating the sequential decision process but should not be interpreted as evidence of real-world customer behavior.
-
-### 5.7 Implementation and Evaluation Limitation
-
-During the probability review, an implementation issue was identified in the likelihood-estimation function. The function accepts a dataset as an argument but internally references the global `df_trans` object when calculating likelihoods. As a result, the reported implementation does not fully isolate the likelihood estimation to the training set as originally intended.
-
-In addition, customer histories were constructed from the complete dataset before the train-test split. Although the fraud label is not used when generating evidence for a transaction, historical transactions from the test set can therefore be present in the history used for another test transaction.
-
-These issues do not mean that the agent directly observes the fraud label during its decision, but they mean that the experimental evaluation is not a perfectly isolated train-test experiment. This limitation is documented rather than hidden and is identified as a correction for a future experimental iteration.
-
-## 7. Failure Analysis
+## 6. Failure Analysis
 
 Although the agent achieved high overall performance, examining its incorrect and uncertain decisions provides more insight than reporting aggregate metrics alone. Under Policy A, nine of the 400 fraudulent transactions were not automatically declined. All nine were assigned to the Examine action. Therefore, the main failure mode was not approving fraudulent transactions, but failing to assign a sufficiently high fraud belief for automatic decline.
 
@@ -657,7 +553,7 @@ These improvements are not required to demonstrate the current prototype, but th
 
 Overall, the failure analysis shows that the agent's main weakness was not an inability to detect fraud in general, but difficulty distinguishing some fraudulent transactions when the available evidence was limited or represented too coarsely.
 
-## 8. Limitations, Ethics, and Human Control
+## 7. Limitations, Ethics, and Human Control
 
 The proposed system is a prototype designed to study decision-making under uncertainty. It is not intended to be used as a production credit-card fraud detection system. Several limitations affect the interpretation of the experimental results.
 
@@ -754,7 +650,7 @@ Based on the experiment and subsequent reviews, the following improvements are i
 
 These improvements would make the system more suitable for rigorous evaluation, but they are outside the scope of the current prototype.
 
-## 9. Conclusion and New Questions
+## 8. Conclusion and New Questions
 
 This project developed a probabilistic credit card fraud detection agent that makes decisions under uncertainty rather than treating fraud detection as a single fixed classification step. The agent combines customer history and transaction evidence to estimate a fraud belief, selects an action based on expected costs, and can request additional information before making a final decision.
 
@@ -780,3 +676,12 @@ These limitations lead to several questions for future investigation:
 6. How should the probabilistic model adapt when fraud patterns change over time?
 7. How does the agent perform when evaluated using a strictly time-based train/test split?
 
+These questions provide directions for extending the prototype from a controlled demonstration into a more rigorous study of sequential decision-making under uncertainty.
+
+### 8.1 Request for Comments
+
+I would particularly welcome feedback on three aspects of this work:
+
+* whether the probability model is an appropriate starting point for this type of agent;
+* how the costs of customer friction and fraud prevention should be represented;
+* and how additional human feedback could be incorporated without giving the agent access to the hidden transaction state.
