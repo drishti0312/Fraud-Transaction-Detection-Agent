@@ -88,7 +88,7 @@ The evidence collected by the agent is converted into a belief about the probabi
 
 A prior fraud probability of 5% is used in the prototype. This value is a design assumption rather than a calibrated estimate of real-world fraud prevalence.
 
-For each evidence signal, the agent estimates how frequently that unusual behavior occurs among fraudulent and legitimate transactions in the training data. Laplace smoothing is used when calculating these likelihoods to avoid zero probabilities for evidence that occurs rarely.
+For each evidence signal, the agent estimates how frequently that unusual behavior occurs among fraudulent and legitimate transactions in the ing data. Laplace smoothing is used when calculating these likelihoods to avoid zero probabilities for evidence that occurs rarely.
 
 The resulting belief represents the agent's current assessment of the transaction. Missing location or merchant information is treated as neutral evidence rather than being interpreted as either suspicious or legitimate.
 
@@ -233,7 +233,7 @@ $$
 
 represents the probability of observing an unusual transaction amount when the transaction is legitimate.
 
-The likelihoods are estimated from historical labeled transactions in the training data. Laplace smoothing is applied when calculating these probabilities:
+The likelihoods are estimated from historical labeled transactions in the ing data. Laplace smoothing is applied when calculating these probabilities:
 
 $$
 P(E|S)=\frac{N(E,S)+1}{N(S)+2}
@@ -398,11 +398,9 @@ The dataset is synthetic and therefore does not represent the complexity or dist
 
 ### 5.2 Train-Test Split
 
-The dataset was divided into training and test sets using an 80/20 stratified split.
+The dataset was divided into training and test sets using an 80/20 split with `train_test_split` and `random_state=42`. The split was not stratified by the fraud label.
 
-The training set contained 9,600 transactions and the test set contained 2,400 transactions. Stratification was used to maintain a similar proportion of legitimate and fraudulent transactions in both sets.
-
-The training data was intended to provide the likelihood estimates used by the probability model, while the test data was used to evaluate the agent's decisions.
+The training set contained 9,600 transactions, and the test set contained 2,400 transactions. The test set included 1,991 legitimate and 409 fraudulent transactions.
 
 ### 5.3 Evidence Generation
 
