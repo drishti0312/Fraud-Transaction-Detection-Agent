@@ -2,525 +2,272 @@
 
 ## 1. Problem Statement
 
-The agent observes a credit-card transaction and must select one of four actions:
+This project explores how an AI agent can make credit-card transaction decisions when the true transaction state—legitimate or fraudulent—is unknown at decision time.
 
-* **Approve**
-* **Question**
-* **Examine**
-* **Decline**
+The agent compares a transaction with the customer's historical behaviour, estimates fraud probability, considers the expected cost of available actions, and requests additional information when appropriate.
 
-The true state of the transaction — whether it is legitimate or fraudulent — is not known at the time of the decision.
+The project focuses on decision-making under uncertainty rather than fraud classification alone. It is an experimental research prototype, not a production-ready fraud detection system.
 
-The project explores how an AI agent can make sequential decisions under uncertainty by using customer history, estimating fraud probability, considering the cost of different actions, and requesting additional information when necessary.
+## 2. Project Objectives
 
----
+The agent is designed to:
 
-## 2. Project Objective
-
-The objective is to build a small, testable AI agent that can:
-
-1. Observe a new transaction.
-2. Compare it with the customer's historical behaviour.
-3. Identify unusual transaction patterns.
-4. Estimate the probability that the transaction is fraudulent.
-5. Select an action based on the estimated fraud belief and action costs.
-6. Ask for additional information when appropriate.
-7. Make a final decision after receiving additional information.
-8. Evaluate different decision policies using labeled test data.
-
-The goal is not to build a production-ready fraud detection system, but to study decision-making under uncertainty using a working prototype.
-
----
+1. Observe a new transaction and compare it with customer history.
+2. Generate evidence about unusual transaction behaviour.
+3. Estimate the probability of fraud.
+4. Select an action using expected action costs.
+5. Ask for additional information when appropriate.
+6. Update its fraud belief after receiving a simulated customer response.
+7. make a final decision or escalate unresolved cases to Human Investigation.
+8. Evaluate its decisions using held-out test data.
+9. Measure uncertainty using entropy and realized entropy reduction.
 
 ## 3. Agent Design
 
-The agent treats **fraud vs. legitimate** as a hidden state.
-
 ### Observable information
 
-The agent can observe:
+The agent uses transaction information and customer history, including:
 
 * Transaction amount
 * Merchant
 * Location
 * Timestamp
-* Customer's previous transactions
-* Customer's home location
+* Previous transaction behaviour
+* Customer home location, where available
 
 ### Hidden state
 
-The hidden state is:
+The implemented probability model uses two hidden states:
 
-* Legitimate transaction
-* Fraudulent transaction
+* Legitimate
+* Fraudulent
 
-The agent does not use the fraud label when making its initial decision.
+The true fraud label is not used to calculate the agent's initial belief. It is retained for evaluation and is also used by the synthetic customer-response simulator, as explained in the limitations.
 
 ### Available actions
 
-| Action       | Purpose                                                     |
-| ------------ | ----------------------------------------------------------- |
-| **Approve**  | Allow the transaction when the estimated fraud risk is low  |
-| **Question** | Request additional information from the customer            |
-| **Examine**  | Escalate an uncertain transaction for further investigation |
-| **Decline**  | Stop the transaction when fraud risk is sufficiently high   |
+| Action                  | Purpose                                              |
+| ----------------------- | ---------------------------------------------------- |
+| **Approve**             | Allow a transaction when its expected cost is lowest |
+| **Question**            | Request additional information from the customer     |
+| **Examine**             | Escalate a transaction for further examination       |
+| **Decline**             | Stop a transaction when its expected cost is lowest  |
+| **Human Investigation** | Escalate an unresolved case for human review         |
 
----
+## 4. Evidence Signals
 
-## 4. Evidence Used
+The agent evaluates five evidence signals against customer history:
 
-The agent compares the current transaction with the customer's transaction history.
+* **Amount:** Checks whether the transaction amount is more than four times the customer's historical average.
+* **Location:** Checks whether the transaction location has appeared in the customer's previous transaction history.
+* **Merchant:** Checks whether the merchant has appeared in the customer's previous transaction history.
+* **Frequency:** Compares the time gap between transactions with the customer's historical transaction gaps.
+* **Velocity:** Checks whether at least three previous transactions occurred within the preceding 30 minutes.
 
-It currently evaluates five types of evidence:
+The evidence is represented primarily as Boolean unusual/not-unusual signals. Missing information is handled separately where applicable.
 
-### Amount
+## 5. Probability and Decision Process
 
-Checks whether the current transaction is more than four times the customer's historical average transaction amount.
+The agent uses a Bayesian-style probability model with a design prior of 5% fraud. Evidence likelihoods are used to update the fraud belief.
 
-### Location
+The evidence likelihoods are combined under a conditional-independence assumption. This simplifies the model and may not reflect real-world dependencies between transaction signals.
 
-Checks whether the transaction location has appeared in the customer's previous transaction history.
+The agent calculates expected costs for Approve, Question, Examine, and Decline, then selects the action with the lowest expected cost. If the initial action is Question, the agent can request additional information and update its belief.
 
-### Merchant
-
-Checks whether the merchant has appeared in the customer's previous transaction history.
-
-### Frequency
-
-Compares the time gap between the current transaction and the customer's previous transaction with the customer's historical transaction gaps.
-
-### Velocity
-
-Checks whether the customer has made at least three transactions within the previous 30 minutes.
-
-These signals are represented as unusual/not unusual evidence, with missing information represented separately where applicable.
-
----
-
-## 5. Decision Process
-
-The agent follows this general process:
+The Week 2 flow is:
 
 ```text
 Transaction
-     ↓
+    ↓
 Customer History
-     ↓
+    ↓
 Generate Evidence
-     ↓
+    ↓
 Estimate Fraud Belief
-     ↓
+    ↓
 Calculate Action Costs
-     ↓
-Select Action
-     ↓
- ┌──────────┬──────────┬──────────┬──────────┐
- ↓          ↓          ↓          ↓
-Approve   Question   Examine    Decline
-             ↓
-       Get additional
-          information
-             ↓
-       Make final decision
+    ↓
+Select Initial Action
+    ↓
+If Question: Request Information
+    ↓
+Simulated Customer Response
+    ↓
+Update Fraud Belief and Recalculate Costs
+    ↓
+Make Final Decision
+    ↓
+Human Investigation if Unresolved
+    ↓
+Evaluate and Measure Uncertainty
 ```
 
-For a Question action, the current prototype can request transaction confirmation. Missing location information can also trigger a location question.
+The cost-based policy is the main decision approach. A threshold-based policy was also explored as an alternative in the earlier experiments.
 
----
+## 6. Dataset and Experimental Setup
 
-## 6. Probability Model
+The project uses a synthetic dataset generated for experimentation.
 
-The agent uses a simple Bayesian-style probability model to estimate fraud belief.
+The original dataset-generation configuration specified:
 
-A **5% prior probability of fraud** is used as a design assumption.
+* 1,000 customers
+* 10,000 normal transactions
+* 2,000 fraudulent transactions
+* 12,000 transactions in total
 
-This prior was intentionally chosen for the experiment and is not the same as the fraud prevalence in the synthetic dataset.
+The Week 2 notebook uses an 80/20 train-test split with `random_state=42`. Evaluation is performed on held-out test data.
 
-The model uses the likelihood of observing unusual evidence under:
+The agent's fraud decisions are evaluated against the true labels only after the decisions are made. The synthetic customer-response simulator is an exception: it uses the hidden label to generate a response for the experiment. This limitation is documented below.
 
-* Fraudulent transactions
-* Legitimate transactions
+## 7. Week 2 Results
 
-The evidence likelihoods are combined with the prior to calculate the agent's fraud belief.
+### Performance metrics
 
-### Important assumption
+| Metric    | Result |
+| --------- | -----: |
+| Accuracy  | 98.92% |
+| Precision | 98.98% |
+| Recall    | 94.62% |
+| F1 score  | 96.75% |
 
-The current probability model treats the evidence signals as conditionally independent.
+### Final action counts
 
-This is a simplification. In a real fraud-detection system, signals such as unusual location, merchant, amount, and transaction timing may be correlated.
+| Final action        | Transactions |
+| ------------------- | -----------: |
+| Approve             |        1,931 |
+| Decline             |          391 |
+| Examine             |            9 |
+| Human Investigation |           69 |
+| **Total**           |    **2,400** |
 
----
+### Fraud labels by final action
 
-## 7. Cost-Sensitive Decision Making
+| Final action        | Legitimate | Fraudulent |
+| ------------------- | ---------: | ---------: |
+| Approve             |      1,931 |          0 |
+| Decline             |          4 |        387 |
+| Examine             |          2 |          7 |
+| Human Investigation |         54 |         15 |
+| **Total**           |  **1,991** |    **409** |
 
-The agent does not select an action using fraud probability alone.
+These results describe this synthetic experiment and should not be interpreted as expected performance on real payment transactions.
 
-Each action has a different expected cost.
+## 8. Uncertainty and Information Gathering
 
-The current cost model is:
+The Week 2 agent measures uncertainty using binary entropy.
 
-| Action   | Cost                                      |
-| -------- | ----------------------------------------- |
-| Approve  | Fraud belief × 100                        |
-| Question | Fraud belief × 10 + Legitimate belief × 2 |
-| Examine  | Fraud belief × 5 + Legitimate belief × 8  |
-| Decline  | Legitimate belief × 20                    |
+For transactions that receive a simulated customer response, the notebook reports:
 
-The agent selects the action with the lowest expected cost.
+| Measure                             | Result |
+| ----------------------------------- | -----: |
+| Transactions with customer response |    223 |
+| Average initial entropy             | 0.9833 |
+| Average updated entropy             | 0.3651 |
+| Average realized entropy reduction  | 0.6182 |
 
-This allows the project to represent the fact that different mistakes have different consequences.
+Realized entropy reduction is the difference between entropy before and after the observed response. It is a retrospective measure, not a formal estimate of expected information gain before asking a question.
 
-For example, approving a fraudulent transaction can be more costly than investigating an uncertain transaction, while unnecessarily interrupting a legitimate customer creates customer friction.
+## 9. Probability Decision Record
 
----
+The detailed Probability Decision Record uses transaction `FREQ_C0386`.
 
-## 8. Dataset
+Initially, the agent estimated a fraud belief of **54.21%** and selected **Question**. After a simulated customer response of **False**, the estimated fraud belief increased to **95.52%**, and the agent selected **Decline**.
 
-A synthetic dataset was created specifically for this project.
+The actual fraud label is used for audit and evaluation, not as an input to the agent's belief update.
 
-### Dataset summary
+The full record is maintained in:
 
-* **Customers:** 1,000
-* **Normal transactions:** 10,000
-* **Fraudulent transactions:** 2,000
-* **Total transactions:** 12,000
-* **Fraud prevalence:** approximately 16.67%
+`docs/probability_decision_record.md`
 
-The fraudulent transactions were generated using several patterns:
-
-* High-amount fraud
-* Location-based fraud
-* High-frequency fraud
-* Merchant novelty
-* Mixed fraud involving multiple unusual signals
-
-Some transaction records also contain missing location and merchant information to test how the agent handles incomplete information.
-
----
-
-## 9. Experimental Setup
-
-The dataset was divided into:
-
-* **80% training data**
-* **20% test data**
-
-The split was stratified by the fraud label.
-
-The test set contained:
-
-* 2,400 transactions
-* 2,000 legitimate transactions
-* 400 fraudulent transactions
-
-The fraud label was hidden from the agent during the decision process and was used only afterward to evaluate the decisions.
-
----
-
-## 10. Decision Policies
-
-Two policies were tested.
-
-### Policy A
-
-The agent uses the cost-based action selection described above.
-
-### Policy B
-
-A threshold-based policy was also tested:
-
-| Fraud belief | Action   |
-| ------------ | -------- |
-| `< 0.20`     | Approve  |
-| `0.20–<0.50` | Examine  |
-| `0.50–<0.80` | Question |
-| `≥ 0.80`     | Decline  |
-
-Testing both policies allowed the project to examine how different decision rules change the balance between automatic decisions and additional investigation.
-
----
-
-## 11. Results
-
-### Policy A
-
-| Metric                           |  Result |
-| -------------------------------- | ------: |
-| Accuracy                         |  99.62% |
-| Precision                        | 100.00% |
-| Recall                           |  97.75% |
-| F1                               |  98.86% |
-| Fraud automatically declined     |  97.75% |
-| Fraud examined                   |   2.25% |
-| Fraud approved                   |      0% |
-| Legitimate transactions declined |       0 |
-| Overall interaction rate         |   8.58% |
-
-Policy A automatically declined 391 of the 400 fraudulent test transactions and sent the remaining 9 fraudulent transactions to Examine.
-
-It did not automatically decline any legitimate transactions.
-
-### Policy B
-
-| Metric                           |  Result |
-| -------------------------------- | ------: |
-| Accuracy                         |  98.38% |
-| Precision                        | 100.00% |
-| Recall                           |  90.25% |
-| F1                               |  94.88% |
-| Fraud automatically declined     |  90.25% |
-| Fraud examined                   |   9.75% |
-| Fraud approved                   |      0% |
-| Legitimate transactions declined |       0 |
-| Overall interaction rate         |   8.54% |
-
-Policy B was more cautious around uncertain transactions.
-
-It sent 52 transactions to Examine, of which:
-
-* 39 were fraudulent
-* 13 were legitimate
-
-Therefore, Policy B examined more cases instead of automatically declining them.
-
-### Policy comparison
-
-Policy A and Policy B demonstrate a trade-off.
-
-Policy A automatically declines more fraudulent transactions.
-
-Policy B moves more uncertain transactions into Examine, which gives the system more opportunities for additional investigation but also results in more legitimate transactions being examined.
-
-Therefore, neither policy should simply be described as universally better. The preferred policy depends on how the system values fraud prevention, customer friction, and investigation capacity.
-
----
-
-## 12. Failure Analysis
-
-Five of the fraud cases that were not automatically declined were examined in detail under Policy A.
-
-Examples included transactions with:
-
-* Unusual frequency
-* Missing location information
-* Normal amount
-* Familiar merchant
-
-One additional case also had missing merchant information.
-
-These cases received similar fraud beliefs because the agent currently represents evidence using relatively coarse Boolean signals.
-
-### Important observation
-
-The 9 fraudulent transactions not automatically declined by Policy A were **sent to Examine rather than Approved**.
-
-Therefore, they are false negatives only when considering automatic decline as the fraud interception mechanism.
-
-The agent still intercepted these transactions through escalation.
-
-This distinction is important when evaluating the agent because an Examine action is different from an automatic approval.
-
----
-
-## 13. Probability Decision Example
-
-One transaction was selected for a detailed probability decision record:
-
-**Transaction:** FREQ_C0514
-
-The agent initially observed:
-
-* Amount: 2496.94
-* Location: Bengaluru
-* Merchant: Max
-* Amount unusual: No
-* Location unusual: No
-* Merchant unusual: No
-* Frequency unusual: Yes
-* Velocity unusual: No
-
-The agent estimated:
-
-**Fraud belief: 53.84%**
-
-The initial action was:
-
-**Question**
-
-The agent requested transaction confirmation.
-
-The simulated response indicated that the transaction was not made by the customer, resulting in:
-
-**Final action: Decline**
-
-The actual hidden label was fraudulent.
-
-This example demonstrates the intended sequential process:
-
-```text
-Observe
-   ↓
-Estimate belief
-   ↓
-Question
-   ↓
-Receive additional information
-   ↓
-Final decision
-```
-
-The detailed record is available in:
-
-`decisions/probability-decision-record.md`
-
----
-
-## 14. Limitations
-
-This project is an experimental prototype and has several important limitations.
+## 10. Limitations and Responsible Use
 
 ### Synthetic data
 
-The dataset is artificially generated and may not represent the complexity of real-world payment transactions.
+The generated dataset cannot represent all the patterns, behaviours, and complexities of real payment transactions.
 
-### Simplified evidence
+### Simplified evidence and probability model
 
-The evidence signals are mostly Boolean. This loses information about the degree of unusualness.
+Most evidence signals are Boolean, and the probability model assumes conditional independence. Both choices limit how much detail the model can capture.
 
-### Independence assumption
+### Design prior and action costs
 
-The probability model assumes conditional independence between evidence signals, which may not hold in real transactions.
+The 5% fraud prior and action-cost values are experimental assumptions. They have not been established as appropriate costs for a real financial institution.
 
-### Manually selected prior
+### Simulated customer responses
 
-The 5% fraud prior is a design assumption rather than an estimate learned from the dataset.
+Customer responses are simulated using the hidden fraud label. This creates an oracle-based limitation: the simulator has access to information that a real customer-response process would not directly provide. The results therefore do not establish how the agent would perform with actual customer feedback.
 
-### Customer-response simulator
+### Delayed labels and concept drift
 
-The current Question flow uses a simulated customer response.
-
-The simulator currently uses the hidden fraud label to determine whether the simulated customer confirms the transaction. This is an **oracle-based limitation** and should not be interpreted as realistic human feedback.
-
-A future version should use noisy/probabilistic customer responses or actual human feedback.
-
-### Immediate labels during evaluation
-
-The true fraud label is available after the decision for evaluation purposes. Real fraud systems may receive confirmation much later through disputes, investigations, or customer reports.
+Real fraud labels may arrive much later through disputes or investigations. Transaction patterns can also change over time. The current prototype does not fully model delayed feedback or monitor concept drift.
 
 ### Not production-ready
 
-The current system should not be considered suitable for deployment in a real payment environment. It is intended as a small experimental system for studying decision-making under uncertainty.
+The agent is intended for experimentation and learning. It requires stronger validation, realistic response data, calibrated probabilities, operational safeguards, and human oversight before any real-world use.
 
----
+## 11. Project Structure
 
-## 15. Project Structure
+The current repository includes the following project materials:
 
 ```text
-student-project/
-│
-├── README.md
-├── research-file.md
-├── discussion-record.md
-├── review-record.md
-│
+credit-card-transaction-agent/
+├── discussion/
+│   └── discussion-record.md
+├── research/
+│   └── research-file.md
+├── docs/
+│   ├── ai_reviews/
+│   │   ├── practitioner_review.md
+│   │   ├── probability_review.md
+│   │   └── preprint_review.md
+│   └── probability_decision_record.md
 ├── paper/
-│   ├── main.tex
-│   ├── references.bib
-│   ├── figures/
-│   └── preprint.pdf
-│
-├── src/
-├── data/
-├── experiments/
-├── results/
-│
-├── decisions/
-│   └── probability-decision-record.md
-│
-└── social/
-    ├── linkedin-post.md
-    └── x-thread.md
+│   └── main.md
+├── README.md
+└── review-record.md
 ```
 
----
+The project also includes the Week 1 and Week 2 notebooks and the CSV datasets in the surrounding `Code/` area of the current workspace.
 
-## 16. How to Run
+## 12. How to Run
 
-### Requirements
+Requirements include Python and common data-science libraries such as pandas, NumPy, and scikit-learn.
 
-The project uses Python and common data-science libraries including:
+1. Open `Week2_Probabilistic_Fraud_Agen.ipynb` in Jupyter.
+2. Confirm that the customer-profile and transaction CSV paths point to the correct files.
+3. Run the notebook cells in order.
+4. Review the generated evidence, initial beliefs, and initial actions.
+5. Run the customer-response simulation and belief-update steps.
+6. Review final actions, performance metrics, and the confusion table.
+7. Review the entropy analysis and Probability Decision Record.
 
-* pandas
-* NumPy
-* scikit-learn
+File paths may need adjustment for your local environment.
 
-### Steps
+## 13. AI and Human Contributions
 
-1. Place the customer profile and transaction CSV files in the project's data directory.
-2. Open the Jupyter notebook containing the agent implementation.
-3. Run the data-loading and preprocessing cells.
-4. Generate customer histories and transaction evidence.
-5. Calculate the training likelihoods.
-6. Calculate fraud beliefs for the test set.
-7. Run Policy A and Policy B.
-8. Compare the resulting actions with the hidden fraud labels.
-9. Generate the evaluation metrics and failure analysis.
+AI tools supported concept explanations, debugging, exploration of design alternatives, and reviews of the agent and research paper. The project author remains responsible for evaluating suggestions and deciding what to incorporate.
 
-The exact data paths may need to be changed depending on the local environment.
+Human discussion and research records are maintained separately in the `discussion/` and `research/` directories.
 
----
-
-## 17. AI and Human Contributions
-
-AI tools were used throughout the project to:
-
-* Explain technical concepts
-* Help reason about probability and decision-making
-* Debug Python code
-* Explore agent design alternatives
-* Review the agent design
-* Help structure the research and preprint
-
-Human discussion is being conducted through relevant Reddit communities and X accounts as part of the project workflow.
-
-The discussion record is maintained separately in:
-
-`discussion-record.md`
-
-AI-generated suggestions are treated as suggestions and are evaluated before being incorporated into the project.
-
----
-
-## 18. Future Work
+## 14. Future Work
 
 Potential improvements include:
 
-1. Replace Boolean evidence with continuous risk features.
+1. Replace Boolean evidence with richer numerical features.
 2. Model dependencies between evidence signals.
-3. Replace the oracle-based customer simulator with realistic noisy feedback.
-4. Update the fraud belief after receiving new evidence.
-5. Test the agent on more diverse transaction patterns.
-6. Evaluate calibration of the fraud probabilities.
-7. Introduce delayed fraud feedback.
-8. Test additional decision policies.
-9. Compare against a simple baseline.
-10. Study how decision thresholds affect customer friction and fraud interception.
+3. Replace the oracle-based simulator with realistic, noisy customer feedback.
+4. Learn response likelihoods from historical data.
+5. Evaluate probability calibration.
+6. Model delayed fraud labels and concept drift.
+7. Compare against simple baseline models.
+8. Test alternative action costs and decision policies.
+9. Evaluate the value of information before asking questions.
+10. Study the trade-off between fraud prevention, customer friction, and human investigation capacity.
 
----
+## 15. Conclusion
 
-## 19. Conclusion
+This project demonstrates an experimental transaction decision agent that combines customer history, evidence signals, probabilistic beliefs, cost-sensitive actions, additional information gathering, and human escalation.
 
-This project demonstrates a small AI agent that makes transaction decisions when the true fraud state is hidden.
+The Week 2 experiment illustrates how new evidence can change a fraud belief and lead to a different decision. It also shows why evaluating an agent involves more than measuring classification performance: uncertainty, consequences, and the handling of unresolved cases matter too.
 
-Instead of treating fraud detection only as a classification problem, the agent combines:
-
-* Historical customer behaviour
-* Multiple evidence signals
-* Fraud probability
-* Action costs
-* Additional questioning
-* Escalation through examination
-
-The experiments show that changing the decision policy changes how the agent balances automatic fraud interception against additional investigation.
-
-The main lesson from the project is that **building a fraud agent is not only about predicting whether a transaction is fraudulent. It is also about deciding what to do when the system is uncertain.**
+The results are limited to the current synthetic dataset and simulation assumptions. The project is a research prototype for studying decision-making under uncertainty, not a production fraud detection system.
