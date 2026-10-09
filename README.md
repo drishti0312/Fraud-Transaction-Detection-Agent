@@ -115,7 +115,7 @@ The original dataset-generation configuration specified:
 * 2,000 fraudulent transactions
 * 12,000 transactions in total
 
-The Week 2 notebook uses an 80/20 train-test split with `random_state=42`. Evaluation is performed on held-out test data.
+The Week 2 notebook uses an 80/20 train-test split with `random_state=42`. The split is not stratified by the fraud label. Evaluation is performed on the held-out test set, which contains 1,991 legitimate and 409 fraudulent transactions (2,400 transactions total).
 
 The agent's fraud decisions are evaluated against the true labels only after the decisions are made. The synthetic customer-response simulator is an exception: it uses the hidden label to generate a response for the experiment. This limitation is documented below.
 
